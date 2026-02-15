@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>N. Allen Classics - Book Appointment</title>
+    <link rel="manifest" href="manifest.json" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app">
+      <header class="header">
+        <button type="button" class="btn-settings staff-only" id="btn-settings" title="Settings" aria-hidden="true">⚙</button>
+        <div class="auth-customer" id="auth-customer">
+          <span class="auth-links" id="auth-links"><button type="button" class="btn-link" id="btn-login">Login</button> · <button type="button" class="btn-link" id="btn-register">Register</button></span>
+          <span class="auth-user hidden" id="auth-user"></span>
+        </div>
+        <h1>N. Allen Classics</h1>
+        <p>Book your next barber appointment</p>
+      </header>
+
+      <main class="main">
+        <div id="payment-return-message" class="payment-return-message" aria-live="polite"></div>
+        <section class="card">
+          <h2>Book an appointment</h2>
+          <form id="booking-form">
+            <div class="field">
+              <label for="customer_name">Name</label>
+              <input id="customer_name" name="customer_name" required />
+            </div>
+
+            <div class="field">
+              <label for="customer_phone">Phone</label>
+              <input id="customer_phone" name="customer_phone" type="tel" required />
+            </div>
+
+            <div class="field">
+              <label for="barber_id">Barber</label>
+              <select id="barber_id" name="barber_id" required></select>
+            </div>
+
+            <div class="field">
+              <label for="service_id">Service</label>
+              <select id="service_id" name="service_id" required></select>
+            </div>
+
+            <div class="field">
+              <label for="date">Date</label>
+              <input id="date" name="date" type="date" required />
+            </div>
+
+            <div class="field time-slot-field">
+              <label>Time slot <span class="slot-hint">(select barber, service & date first)</span></label>
+              <div id="time-slot-picker" class="time-slot-picker"></div>
+              <input type="hidden" id="time" name="time" />
+            </div>
+
+            <div class="field">
+              <label for="notes">Notes (optional)</label>
+              <textarea id="notes" name="notes" rows="2"></textarea>
+            </div>
+
+            <div class="payment-notice">
+              <p><strong>Booking fee: <span id="booking-fee">500</span> LKR</strong> (Visa/Mastercard). No refunds.</p>
+            </div>
+
+            <button class="btn-primary" type="submit" id="submit-booking">Pay <span id="pay-amount">500</span> LKR &amp; Book</button>
+            <p id="form-message" class="form-message"></p>
+          </form>
+        </section>
+
+        <section class="card">
+          <h2>Today's appointments</h2>
+          <div class="field">
+            <input id="appointments-date" type="date" />
+          </div>
+          <ul id="appointments-list" class="appointments-list"></ul>
+        </section>
+      </main>
+
+      <footer class="footer">
+        <p>&copy; <span id="year"></span> N. Allen Classics Barbershop</p>
+      </footer>
+    </div>
+
+    <div id="settings-overlay" class="settings-overlay" aria-hidden="true">
+      <div class="settings-panel">
+        <div class="settings-header">
+          <h2>Settings</h2>
+          <button type="button" class="btn-close" id="settings-close" aria-label="Close">&times;</button>
+        </div>
+        <div class="settings-tabs">
+          <button type="button" class="settings-tab active" data-tab="barbers">Barbers</button>
+          <button type="button" class="settings-tab" data-tab="services">Services</button>
+        </div>
+
+        <div id="settings-barbers" class="settings-content active">
+          <div class="settings-list-header">
+            <h3>Barbers</h3>
+            <button type="button" class="btn-add" id="barber-add">+ Add barber</button>
+          </div>
+          <ul id="settings-barbers-list" class="settings-list"></ul>
+          <div id="barber-form" class="settings-form hidden">
+            <h4 id="barber-form-title">Add barber</h4>
+            <div class="field">
+              <label for="barber-name">Name</label>
+              <input id="barber-name" type="text" required />
+            </div>
+            <div class="field">
+              <label for="barber-phone">Phone (WhatsApp)</label>
+              <input id="barber-phone" type="tel" placeholder="e.g. 0771234567" />
+            </div>
+            <div class="field">
+              <label for="barber-form-email">Email (for barber login)</label>
+              <input id="barber-form-email" type="email" />
+            </div>
+            <div class="field">
+              <label for="barber-form-password">Password <span class="meta">(min 6; leave blank to keep)</span></label>
+              <input id="barber-form-password" type="password" placeholder="Leave blank to keep current" minlength="6" />
+            </div>
+            <div class="form-actions">
+              <button type="button" class="btn-primary btn-sm" id="barber-save">Save</button>
+              <button type="button" class="btn-cancel btn-sm" id="barber-cancel">Cancel</button>
+            </div>
+            <p id="barber-form-message" class="form-message"></p>
+          </div>
+        </div>
+
+        <div id="settings-services" class="settings-content">
+          <div class="settings-list-header">
+            <h3>Services</h3>
+            <button type="button" class="btn-add" id="service-add">+ Add service</button>
+          </div>
+          <ul id="settings-services-list" class="settings-list"></ul>
+          <div id="service-form" class="settings-form hidden">
+            <h4 id="service-form-title">Add service</h4>
+            <div class="field">
+              <label for="service-name">Name</label>
+              <input id="service-name" type="text" required />
+            </div>
+            <div class="field">
+              <label for="service-duration">Duration (minutes)</label>
+              <input id="service-duration" type="number" min="5" max="240" value="30" />
+            </div>
+            <div class="field">
+              <label for="service-price">Price (LKR)</label>
+              <input id="service-price" type="number" min="0" step="0.01" value="0" />
+            </div>
+            <div class="form-actions">
+              <button type="button" class="btn-primary btn-sm" id="service-save">Save</button>
+              <button type="button" class="btn-cancel btn-sm" id="service-cancel">Cancel</button>
+            </div>
+            <p id="service-form-message" class="form-message"></p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="auth-modal" class="auth-modal" aria-hidden="true">
+      <div class="auth-modal-content">
+        <button type="button" class="btn-close auth-close" id="auth-modal-close" aria-label="Close">&times;</button>
+        <div id="auth-tab-login" class="auth-tab-pane">
+          <h3>Customer login</h3>
+          <form id="form-login">
+            <div class="field"><label for="login-phone">Phone</label><input id="login-phone" type="tel" required placeholder="e.g. 0771234567" /></div>
+            <div class="field"><label for="login-pin">PIN</label><input id="login-pin" type="password" inputmode="numeric" maxlength="8" placeholder="4–8 digits" required /></div>
+            <p id="login-message" class="form-message"></p>
+            <button type="submit" class="btn-primary">Login</button>
+          </form>
+        </div>
+        <div id="auth-tab-register" class="auth-tab-pane hidden">
+          <h3>Register (one time)</h3>
+          <form id="form-register">
+            <div class="field"><label for="reg-name">Name</label><input id="reg-name" type="text" required /></div>
+            <div class="field"><label for="reg-phone">Phone</label><input id="reg-phone" type="tel" required placeholder="e.g. 0771234567" /></div>
+            <div class="field"><label for="reg-pin">PIN (4–8 digits)</label><input id="reg-pin" type="password" inputmode="numeric" maxlength="8" required /></div>
+            <p id="register-message" class="form-message"></p>
+            <button type="submit" class="btn-primary">Register</button>
+          </form>
+        </div>
+        <div class="auth-tab-switch">
+          <button type="button" class="btn-link" id="auth-show-register">Register</button>
+          <button type="button" class="btn-link" id="auth-show-login">Login</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="barber-login-overlay" class="auth-modal barber-login-overlay" aria-hidden="true">
+      <div class="auth-modal-content">
+        <h3>Barber login</h3>
+        <form id="form-barber-login">
+          <div class="field"><label for="barber-username">Username</label><input id="barber-username" type="text" required /></div>
+          <div class="field"><label for="barber-password">Password</label><input id="barber-password" type="password" required /></div>
+          <p id="barber-login-message" class="form-message"></p>
+          <button type="submit" class="btn-primary">Login</button>
+        </form>
+      </div>
+    </div>
+
+    <script src="app.js"></script>
+    <script src="auth.js"></script>
+    <script src="settings.js"></script>
+  </body>
+  </html>
+
