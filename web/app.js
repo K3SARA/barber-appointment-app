@@ -43,7 +43,10 @@ function formatTime(iso) {
 }
 
 function formatDateInput(date) {
-  return date.toISOString().split('T')[0];
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
 }
 
 function setDateMinToday() {
@@ -117,8 +120,9 @@ async function loadAvailableSlots() {
     return;
   }
   try {
+    const tzOffsetMinutes = new Date().getTimezoneOffset();
     const res = await fetch(
-      `${API_BASE}/available-slots?date=${encodeURIComponent(date)}&barber_id=${encodeURIComponent(barberId)}&service_id=${encodeURIComponent(serviceId)}`
+      `${API_BASE}/available-slots?date=${encodeURIComponent(date)}&barber_id=${encodeURIComponent(barberId)}&service_id=${encodeURIComponent(serviceId)}&tz_offset_minutes=${encodeURIComponent(tzOffsetMinutes)}`
     );
     const slots = await res.json();
     renderTimeSlots(Array.isArray(slots) ? slots : []);
@@ -133,7 +137,9 @@ dateInput.addEventListener('change', loadAvailableSlots);
 
 async function loadAppointmentsForDate(dateStr) {
   appointmentsList.innerHTML = '<li>Loading...</li>';
-  const barberToken = typeof window.getBarberToken === 'function' ? window.getBarberToken() : null;
+  const staffMode = sessionStorage.getItem('barberStaff') === '1';
+  const barberTokenRaw = typeof window.getBarberToken === 'function' ? window.getBarberToken() : null;
+  const barberToken = staffMode ? barberTokenRaw : null;
   const headers = typeof window.authHeaders === 'function' ? window.authHeaders(barberToken) : {};
   const isBarberLoggedIn = !!barberToken;
   try {

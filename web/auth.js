@@ -82,6 +82,7 @@
   }
 
   function enterAdminMode() {
+    sessionStorage.setItem('barberStaff', '1');
     customerGateActive = false;
     authModal.classList.remove('open');
     authModal.setAttribute('aria-hidden', 'true');
@@ -126,6 +127,7 @@
     backBtn.textContent = 'Back';
     backBtn.style.marginTop = '0.75rem';
     backBtn.addEventListener('click', function () {
+      sessionStorage.removeItem('barberStaff');
       barberLoginOverlay.classList.remove('open');
       barberLoginOverlay.setAttribute('aria-hidden', 'true');
       setSettingsVisible(false);
@@ -219,6 +221,7 @@
   function renderCustomerUI(user) {
     currentCustomer = user && user.type === 'customer' ? user : null;
     if (currentCustomer) {
+      sessionStorage.removeItem('barberStaff');
       authLinks.classList.add('hidden');
       authUser.classList.remove('hidden');
       authUser.innerHTML = `${escapeHtml(currentCustomer.name)} - <button type="button" class="btn-link" id="btn-customer-logout">Logout</button>`;

@@ -18,10 +18,14 @@ body {
 }
 
 .header {
-  padding: 1.5rem 1.25rem 1rem;
-  text-align: center;
+  padding: calc(env(safe-area-inset-top, 0px) + 3.6rem) 1.25rem 1rem;
+  text-align: left;
   position: relative;
 }
+.brand-title {
+  font-family: "Anton", sans-serif;
+}
+
 
 .btn-settings {
   position: absolute;
@@ -50,13 +54,15 @@ body {
 }
 
 .header h1 {
-  margin: 0;
+  margin: 0.15rem 0 0;
   font-size: 1.75rem;
+  text-align: center;
 }
 
 .header p {
   margin: 0.25rem 0 0;
   color: #9ca3af;
+  text-align: center;
 }
 
 .auth-customer {
@@ -64,9 +70,39 @@ body {
   top: 1rem;
   left: 1.25rem;
   font-size: 0.9rem;
+  margin: 0;
+  padding-right: 4rem;
+  min-height: 2.25rem;
+  display: flex;
+  align-items: center;
 }
 .auth-customer .hidden {
   display: none;
+}
+.auth-links {
+  display: inline-flex;
+  gap: 0.4rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.auth-user {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.auth-links .btn-link {
+  border: 1px solid rgba(34, 197, 94, 0.6);
+  border-radius: 999px;
+  padding: 0.2rem 0.6rem;
+  background: rgba(34, 197, 94, 0.12);
+  color: #86efac;
+  text-decoration: none;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+.auth-links .btn-link:hover {
+  color: #dcfce7;
+  background: rgba(34, 197, 94, 0.24);
 }
 .btn-link {
   background: none;

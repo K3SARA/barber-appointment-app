@@ -15,6 +15,11 @@ const CLOSE_HOUR = 21;
 const CLOSE_MIN = 0;
 const SLOT_MINUTES = 15;
 const BOOKING_FEE_LKR = 500;
+// Default salon timezone offset in minutes (JavaScript style: UTC - local).
+// Sri Lanka (UTC+05:30) => -330.
+const SALON_TZ_OFFSET_MINUTES = Number.isFinite(parseInt(process.env.SALON_TZ_OFFSET_MINUTES, 10))
+  ? parseInt(process.env.SALON_TZ_OFFSET_MINUTES, 10)
+  : -330;
 
 // PayHere (payhere.lk). Set in env for production.
 const PAYHERE_MERCHANT_ID = process.env.PAYHERE_MERCHANT_ID || '';
@@ -146,6 +151,47 @@ function calculateEndTime(startTime, durationMinutes) {
   const start = new Date(startTime);
   const end = new Date(start.getTime() + durationMinutes * 60000);
   return end.toISOString();
+}
+
+function localDateTimeToUtcMs(dateStr, hhmm, tzOffsetMinutes) {
+  const [y, m, d] = String(dateStr).split('-').map(n => parseInt(n, 10));
+  const [hh, mm] = String(hhmm).split(':').map(n => parseInt(n, 10));
+  const utcBase = Date.UTC(y, m - 1, d, hh, mm, 0, 0);
+  return utcBase + tzOffsetMinutes * 60000;
+}
+
+function addDaysYMD(dateStr, days) {
+  const [y, m, d] = String(dateStr).split('-').map(n => parseInt(n, 10));
+  const dt = new Date(Date.UTC(y, m - 1, d + days));
+  const yy = dt.getUTCFullYear();
+  const mm = String(dt.getUTCMonth() + 1).padStart(2, '0');
+  const dd = String(dt.getUTCDate()).padStart(2, '0');
+  return `${yy}-${mm}-${dd}`;
+}
+
+function utcMsToLocalYmdHm(utcMs, tzOffsetMinutes) {
+  // Convert UTC epoch to "local" clock by offset, then read via UTC getters.
+  const localMs = utcMs - tzOffsetMinutes * 60000;
+  const d = new Date(localMs);
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(d.getUTCDate()).padStart(2, '0');
+  const hh = d.getUTCHours();
+  const mm = d.getUTCMinutes();
+  return { ymd: `${y}-${m}-${day}`, hh, mm };
+}
+
+function isValidSalonSlotStart(startIso, tzOffsetMinutes) {
+  const ms = new Date(startIso).getTime();
+  if (!Number.isFinite(ms)) return false;
+  const local = utcMsToLocalYmdHm(ms, tzOffsetMinutes);
+  const total = local.hh * 60 + local.mm;
+  const openTotal = OPEN_HOUR * 60 + OPEN_MIN;
+  const closeTotal = CLOSE_HOUR * 60 + CLOSE_MIN;
+  // Must be on 15-min boundary and start within opening hours.
+  if (local.mm % SLOT_MINUTES !== 0) return false;
+  if (total < openTotal || total >= closeTotal) return false;
+  return true;
 }
 
 // All 15-min slot start times between 10:00 and 21:00 (last slot starts 20:45)
@@ -444,6 +490,8 @@ app.get('/api/available-slots', (req, res) => {
   }
   const barberId = parseInt(barber_id, 10);
   const serviceId = parseInt(service_id, 10);
+  // Always use salon timezone so real-time slot logic is consistent.
+  const tzOffsetMinutes = SALON_TZ_OFFSET_MINUTES;
   if (isNaN(barberId) || isNaN(serviceId)) {
     return res.status(400).json({ error: 'Invalid barber_id or service_id' });
   }
@@ -453,12 +501,16 @@ app.get('/api/available-slots', (req, res) => {
       return res.status(400).json({ error: 'Invalid service' });
     }
     const durationMinutes = service.duration_minutes;
-    const startOfDay = `${date}T00:00:00.000Z`;
-    const endOfDay = `${date}T23:59:59.999Z`;
+    const dayStartUtcIso = new Date(localDateTimeToUtcMs(date, '00:00', tzOffsetMinutes)).toISOString();
+    const nextDayUtcIso = new Date(localDateTimeToUtcMs(addDaysYMD(date, 1), '00:00', tzOffsetMinutes)).toISOString();
+    const closingUtcMs = localDateTimeToUtcMs(date, `${String(CLOSE_HOUR).padStart(2, '0')}:${String(CLOSE_MIN).padStart(2, '0')}`, tzOffsetMinutes);
 
     db.all(
-      'SELECT start_time, end_time FROM appointments WHERE barber_id = ? AND start_time >= ? AND end_time <= ?',
-      [barberId, startOfDay, endOfDay],
+      `SELECT start_time, end_time
+       FROM appointments
+       WHERE barber_id = ?
+         AND NOT (end_time <= ? OR start_time >= ?)`,
+      [barberId, dayStartUtcIso, nextDayUtcIso],
       (err2, appointments) => {
         if (err2) return res.status(500).json({ error: 'Failed to fetch appointments' });
 
@@ -467,11 +519,11 @@ app.get('/api/available-slots', (req, res) => {
         const available = [];
 
         for (const slotHHMM of allSlots) {
-          if (isSlotInPast(date, slotHHMM)) continue;
-          const slotStart = new Date(slotStartToISO(date, slotHHMM)).getTime();
+          const slotStart = localDateTimeToUtcMs(date, slotHHMM, tzOffsetMinutes);
+          if (slotStart <= Date.now()) continue;
           const slotEnd = slotStart + durationMinutes * 60000;
           // Slot must end by closing time (21:00)
-          if (slotEnd > new Date(`${date}T${String(CLOSE_HOUR).padStart(2, '0')}:${String(CLOSE_MIN).padStart(2, '0')}:00`).getTime()) continue;
+          if (slotEnd > closingUtcMs) continue;
           const overlaps = blocked.some(b => (slotStart < b.end && slotEnd > b.start));
           if (!overlaps) available.push(slotHHMM);
         }
@@ -540,6 +592,12 @@ app.post('/api/initiate-booking', requireCustomer, (req, res) => {
   const { barber_id, service_id, start_time, notes } = req.body;
   if (!barber_id || !service_id || !start_time) {
     return res.status(400).json({ error: 'Missing required fields' });
+  }
+  if (!isValidSalonSlotStart(start_time, SALON_TZ_OFFSET_MINUTES)) {
+    return res.status(400).json({ error: 'Invalid start time for salon hours/slot rules' });
+  }
+  if (new Date(start_time).getTime() <= Date.now()) {
+    return res.status(400).json({ error: 'Selected time has already passed' });
   }
 
   db.get('SELECT id, name, phone FROM customers WHERE id = ?', [req.customerSession.user_id], (custErr, customer) => {
